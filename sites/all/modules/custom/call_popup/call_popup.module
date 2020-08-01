@@ -60,12 +60,18 @@ function call_popup_form() {
         '#title' => 'Введите ваше имя',
         '#type' => 'textfield',
         '#required' => TRUE,
+        '#attributes' => [
+            'autocomplete' => 'off'
+        ],
     ];
 
     $form['phone'] = [
         '#title' => 'Введите телефон',
         '#type' => 'textfield',
         '#required' => TRUE,
+        '#attributes' => [
+            'autocomplete' => 'off'
+        ],
     ];
 
     $form["submit"] = [

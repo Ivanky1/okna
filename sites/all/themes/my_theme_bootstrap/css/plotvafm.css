@@ -4,6 +4,10 @@
  * For details, see http://www.apache.org/licenses/LICENSE-2.0.
  */
 
+html {
+    overflow-y: scroll;
+}
+
 body {
     font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
     background: url('../img/bg.jpg') no-repeat center center fixed;
@@ -224,4 +228,8 @@ footer p {
 
 .intro-text .ctools-modal-feedback-deal-ctools:active {
     text-decoration: none;
+}
+
+.modal-dialog {
+    max-width: 500px;
 }

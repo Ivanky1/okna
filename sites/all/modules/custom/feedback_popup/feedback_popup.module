@@ -59,6 +59,9 @@ function feedback_popup_form() {
     $form['name'] = [
         '#title' => 'Введите ваше имя',
         '#type' => 'textfield',
+        '#attributes' => [
+            'autocomplete' => 'off'
+        ],
         '#required' => TRUE,
     ];
 
@@ -66,12 +69,18 @@ function feedback_popup_form() {
         '#title' => 'Введите ваш телефон',
         '#type' => 'textfield',
         '#required' => TRUE,
+        '#attributes' => [
+            'autocomplete' => 'off'
+        ],
     ];
 
     $form['email'] = [
         '#title' => 'Введите ваш email',
         '#type' => 'textfield',
         '#required' => TRUE,
+        '#attributes' => [
+            'autocomplete' => 'off'
+        ],
     ];
 
     $form["body"] = [
