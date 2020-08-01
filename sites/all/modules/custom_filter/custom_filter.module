@@ -1,0 +1,93 @@
+<?php
+
+
+/**
+ * Реализация hook_menu()
+ */
+function custom_filter_menu() {
+  $items['custom/filter'] = array(
+      'title' => 'filter API',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('my_filter_form'),
+      'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function my_filter_form($form, &$form_state) {
+    $type_content = node_type_get_types();
+    $options_type = array();
+    foreach($type_content as $value){
+        if($value->orig_type != 'page'){
+            $options_type[$value->orig_type] = $value->name;
+        }
+    }
+
+    $form['type'] = array(
+        '#type' => 'select',
+        '#title' => t('Выбрать тип материала'),
+        '#options' => $options_type,
+        '#empty_option' => '--Select type content--',
+    );
+
+    // Кнопка отправки формы
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Filter'),
+        '#ajax' => array(
+            'callback' => 'myexposed_filter_callback',
+            'wrapper' => 'myexposed-filter-form',
+        ),
+    );
+
+    $form['all_materials'] = array(
+        '#markup' => '<div id="myexposed-filter-form"></div>'
+    );
+
+    return $form;
+}
+
+function myexposed_filter_callback($form, &$form_state) {
+    // Получили значения фильтра
+    $type_content = $form_state['values']['type'];
+
+    // Проверяем не пустые ли данные значения
+    if(!empty($type_content)){
+
+        $nodes = node_load_multiple(array(), array('type' => $type_content));
+        // Получили список нод для указанного типа
+        $views = node_view_multiple($nodes, 'teaser');
+        $output = drupal_render($views);
+
+    }else{
+
+        // Получаем NID нод, которые опубликованы и выводятся на главной странице сайта
+        $nids = db_select('node', 'n')
+            ->fields('n', array('nid'))
+            ->condition('status', 1)
+            ->condition('promote', 1)
+            ->orderBy('n.created', 'DESC')
+            ->extend('PagerDefault')
+            ->limit(10)
+            ->execute();
+
+        // Формируем массив с NID нод
+        foreach ($nids as $nid) {
+            $items[] = $nid->nid;
+        }
+
+        // Загружаем объекты нод и формирусем формат вывода ноды
+        $nodes = node_load_multiple($items);
+        $views = node_view_multiple($nodes);
+
+        // Рендерим список нод и добавляем пагинацию
+        $output = drupal_render($views) .theme('pager');
+
+    }
+
+    // Ajax команды
+    $commands = array();
+    // Изменяем содержимое DOM элемента с указаным ID - на отрендеренный список нод
+    $commands[] = ajax_command_html('#myexposed-filter-form', $output);
+    return array('#type' => 'ajax', '#commands' => $commands);
+}

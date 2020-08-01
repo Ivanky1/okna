@@ -1,0 +1,251 @@
+<?php
+
+/**
+ * hook_init
+ */
+function form_poll_covid_init() {
+    $path = drupal_get_path('module', 'form_poll_covid');
+
+    if (!strstr($_GET['q'], 'admin') ) {
+        return;
+    }
+
+    if (!strstr($_GET['q'], 'research-2020') && !drupal_is_front_page()) {
+       // drupal_add_js($path . '/js/form_poll_covid.js');
+    }
+
+    drupal_add_css($path . '/css/form_poll_covid.css');
+}
+
+function form_poll_covid_preprocess_page(&$vars) {
+    if ($_GET['q'] == 'research-2020') {
+        global $base_url;
+
+        $meta_tags = [
+            [
+                'property' => 'og:image',
+                'content' => $base_url . base_path() .'sites/default/files/covid.png',
+                'name' => 'key_image'
+            ],
+
+        ];
+
+        foreach ($meta_tags as $tag) {
+            addMetaTagHeader($tag['property'], $tag['content'], $tag['name']);
+        }
+    }
+
+}
+
+function addMetaTagHeader($property, $content, $name) {
+    $page_keywords = array(
+        '#type' => 'html_tag',
+        '#tag' => 'meta',
+        '#attributes' => array(
+            'property' => $property,
+            'content' => $content,
+        )
+    );
+    drupal_add_html_head($page_keywords, $name);
+}
+
+/**
+ * @return mixed
+ */
+function form_poll_covid_menu() {
+    $items['research-2020'] = array(
+        'title' => 'Примите участие в независимом иследовании BISA',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('covid_poll_form'),
+        'access arguments' => array('access content'),
+    );
+
+    return $items;
+}
+
+function covid_poll_form($form, &$form_state) {
+    $quizzes = getQuizzesCovid();
+    addElementsForm($form, $quizzes);
+    return $form;
+}
+
+function covid_poll_form_validate($form, &$form_state) {
+    $values = $form_state['input'];
+
+    if ($values['quiz6'] != '') {
+        if ($values['quiz6'] == '0' && $values['quiz6_add_0'] == '') {
+            form_set_error('quiz6_add_0', 'Поле название нужно заполнить');
+        } elseif ($values['quiz6'] == '1' && $values['quiz6_add_1'] == '') {
+            form_set_error('quiz6_add_0', 'Поле причина нужно заполнить');
+        }
+    }
+
+    if ($values['email_to'] != '' && !strstr($values['email_to'], '@')) {
+        form_set_error('email_to', 'Значение не является эл. почтой');
+    }
+
+}
+
+function covid_poll_form_submit($form, &$form_state) {
+    $title = 'Отправка опроса по covid на bis-expert.ru';
+    $body = '';
+
+    $input_exclude = [
+        'send',
+        'form_build_id',
+        'form_token',
+        'form_id',
+        'op',
+    ];
+
+    foreach ($form_state['input'] as $key => $item) {
+
+        if ($item == '') {
+            continue;
+        }
+
+        if (in_array($key, $input_exclude)) {
+            continue;
+        }
+
+        $form_submit = [
+            'title' => $form[$key]['#title'],
+            'value' => $item,
+        ];
+
+        if ($form[$key]['#type'] == 'radios') {
+            $form_submit['value'] = $form[$key]['#options'][$item];
+        }
+
+        $body .= '<p>'.$form_submit['title'].'<br>';
+        $body .= $form_submit['value'];
+        $body .= '</p>';
+        $body .= '<hr>';
+    }
+
+    $emails = [
+        'igumensheva@bis-expert.ru'
+    ];
+
+    if ($form_state['input']['email_to'] != '') {
+        $emails[] = $form_state['input']['email_to'];
+    }
+
+    $emails = implode(',', $emails);
+
+    module_load_include('module', 'iw_config');
+    iw_config_send_mail($emails, $title, $body);
+    drupal_set_message('Опрос отправлен', 'status');
+}
+
+function addElementsForm(&$form, $quizzes) {
+    $form["markup"] = array(
+        "#markup" => '<p>Уважаемые коллеги,<br/>'.
+                        'Приглашаем вас принять участие в независимом опросе BISA. Давайте вместе оценим ситуацию на рынке информационной безопасности!<br/>'.
+                        'Дата проведения опроса с 1 по 31 мая 2020 г.<br/>'.
+                        'Полную версию результатов исследования мы пришлем Вам 1 июня.</p>',
+    );
+
+    foreach ($quizzes as $quiz) {
+        $form[$quiz['name']] = [
+            "#type" => "radios",
+            "#title" => $quiz['title'],
+            '#options' => $quiz['values'],
+            "#required" => TRUE,
+        ];
+        if ($quiz['type']) {
+            $form[$quiz['name']]['#type'] = $quiz['type'];
+        }
+
+        if ($quiz['name'] == 'quiz6') {
+            $fields_additional = [
+                ['title' => 'Название', 'value' => '0'],
+                ['title' => 'Причина', 'value' => '1'],
+            ];
+            addAdditionalFormCovid($form, $fields_additional);
+        }
+    }
+
+    $form["email_to"] = array(
+        "#title" => "Укажите email, на который Вы хотите получить результаты опроса:",
+        "#type" => "textfield",
+        "#required" => TRUE,
+    );
+    $form["send"] = array(
+        "#type" => "submit",
+        "#value" => "Отправить",
+    );
+}
+
+function addAdditionalFormCovid(&$form, $values) {
+    foreach ($values as $value) {
+        $form['quiz6_add_'.$value['value']] = [
+            '#title' => $value['title'],
+            '#type' => 'textfield',
+            '#states' => [
+                'visible' => [
+                    ':input[name="quiz6"]' => array('value' => $value['value']),
+                ]
+            ],
+        ];
+    }
+}
+
+function getQuizzesCovid() {
+    return [
+        'quiz1' => [
+            'name' => 'quiz1',
+            'title' => 'Воспользовались ли вы хотя бы одним специальным предложением ИБ-вендоров, '.
+                'которые они предлагают на период пандемии и самоизоляции?',
+            'values' => ['Да', 'Нет',]
+        ],
+        'quiz2' => [
+            'name' => 'quiz2',
+            'title' => 'Сколько сотрудников в вашей компании переведено на удаленную работу с начала режима самоизоляции?',
+            'values' => ['До 30%', '30% - 60%', '60% - 90%', 'Больше 90%',]
+        ],
+        'quiz3' => [
+            'name' => 'quiz3',
+            'title' => 'Оцените уровень готовности вашей организации к удаленной работе.',
+            'values' => [
+                'Начинали с нуля: пришлось спешно докупать оборудование и программное обеспечение, ставить vpn',
+                'Пришлось переконфигурировать сети и проводить обучение пользователей',
+                'Ничего не поменялось, мы и так практикуем удаленную работу',
+                'Мы не стали организовывать удаленный доступ',
+            ]
+        ],
+        'quiz4' => [
+            'name' => 'quiz4',
+            'title' => 'Разрешено ли сотрудникам вашей компании использовать корпоративную почту на персональных мобильных устройствах?',
+            'values' => ['Да', 'Нет',]
+        ],
+        'quiz5' => [
+            'name' => 'quiz5',
+            'title' => 'Разрешено ли сотрудникам вашей компании подключаться к корпоративной сети с личных рабочих станций?',
+            'values' => ['Да', 'Нет',]
+        ],
+        'quiz6' => [
+            'name' => 'quiz6',
+            'title' => 'Пользуетесь ли вы внешними сервисами для коллективной работы – видеоконференцсвязи.',
+            'values' => ['Да', 'Нет (причина)', 'Нет, только корпоративные ресурсы для ВКС']
+        ],
+        'quiz7' => [
+            'name' => 'quiz7',
+            'title' => 'С начала введения режима самоизоляции выросло ли количество атак на внешние ресурсы вашей компании?',
+            'values' => ['Скорее да', 'Ничего не поменялось', 'Скорее нет']
+        ],
+        'quiz8' => [
+            'name' => 'quiz8',
+            'title' => 'Самая большая проблема при переходе на удаленную работу с точки зрения ИБ?',
+            'type' => 'textfield'
+        ],
+        'quiz9' => [
+            'name' => 'quiz9',
+            'title' => 'С начала введения режима самоизоляции менялись ли регламенты ИБ в вашей организации?',
+            'values' => ['Да', 'Нет', 'Затрудняюсь ответить']
+        ],
+    ];
+}
+
+
+

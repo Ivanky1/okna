@@ -1,0 +1,6 @@
+name = form_poll_covid
+description = form_poll_covid module
+version = VERSION
+core = 7.x
+
+

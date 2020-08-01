@@ -1,0 +1,161 @@
+<?php
+
+/**
+ * * Реализация hook_block_info();
+ *
+ * @return mixed
+ */
+function feedback_popup_block_info() {
+    $blocks['feedback_popup'] = ['info' => 'Feedback popup link'];
+    return $blocks;
+}
+
+/**
+ * Реализация hook_block_view();
+ *
+ * @param string $delta
+ *
+ * @return array
+ */
+function feedback_popup_block_view($delta = '') {
+    $block = [];
+
+    if ($delta == 'feedback_popup') {
+        // Подключение необходимых библиотек.
+        ctools_include('ajax');
+        ctools_include('modal');
+
+// Подключение JS для модальных окон.
+        ctools_modal_add_js();
+
+// Создание пользовательского стиля, который будет использоваться для темизации модального окна.
+        $sample_style = array(
+            'feedback-deal-ctools' => array(
+                'modalSize' => array(
+                    'type' => 'fixed',
+                    'width' => 500,
+                    'height' => 500,
+                ),
+                'modalOptions' => array(
+                    'opacity' => .8,
+                    'background-color' => '#000',
+                ),
+                'closeText' => '',
+                'animation' => 'fadeIn',
+                'animationSpeed' => 'fast',
+            ),
+        );
+
+        drupal_add_js($sample_style, 'setting');
+
+        $link = ctools_modal_text_button('Напишите нам', 'feedback/nojs',
+           'Cвязаться с нами', 'ctools-modal-feedback-deal-ctools more');
+        $block['subject'] = 'Связь c нами';
+        $block['content'] = render($link);
+    }
+
+    return $block;
+}
+
+/**
+ * hook_menu
+ *
+ * @return mixed
+ */
+function feedback_popup_menu() {
+    $items['feedback/%ctools_js'] = [
+        'title' => 'Test',
+        'page callback' => 'feedback_popup_handler',
+        'page arguments' => array(1),
+        'type' => MENU_CALLBACK,
+        'access arguments' => ['access content'],
+    ];
+
+    return $items;
+}
+
+/**
+ * @param $ajax
+ * @param $nid
+ *
+ * @return array|mixed|void
+ */
+function feedback_popup_handler($ajax) {
+
+    if ($ajax) {
+        ctools_include('ajax');
+        ctools_include('modal');
+
+        $form_state = array(
+            'ajax' => TRUE,
+            'title' => 'Обратная связь',
+        );
+        // Use ctools to generate ajax instructions for the browser to create
+        // a form in a modal popup.
+        $output = ctools_modal_form_wrapper('feedback_popup_form', $form_state);
+
+        if (!empty($form_state['ajax_commands'])) {
+            $output = $form_state['ajax_commands'];
+        }
+
+        // Return the ajax instructions to the browser via ajax_render().
+        print ajax_render($output);
+        drupal_exit();
+    }
+}
+
+function feedback_popup_form() {
+    $form['email'] = [
+        '#title' => 'Введите ваш email',
+        '#type' => 'textfield',
+        '#required' => TRUE,
+    ];
+
+    $form["body"] = [
+        '#title' => 'Напишите нам',
+        '#type' => 'textarea',
+        '#rows' => '5',
+        '#cols' => '300',
+        '#required' => TRUE,
+    ];
+
+    $form["submit"] = [
+        "#type" => "submit",
+        "#value" => 'Отправить',
+    ];
+
+    return $form;
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ */
+function feedback_popup_form_submit($form, &$form_state) {
+    $form_values = [];
+    $values = $form_state['input'];
+
+    foreach ($values as $key => $value) {
+        $form_values[$key] = trim(addslashes(strip_tags($value)));
+    }
+
+    $emails = [
+        '',
+    ];
+
+    $emails = implode(',', $emails);
+    $title = 'Форма обртная связь bis-expert.ru';
+    $body = nl2br($form_values['body']);
+    $body .= '<br/><br/>email - '.$form_values['email'];
+
+    module_load_include('module', 'iw_config');
+    iw_config_send_mail($emails, $title, $body);
+
+    $message = '<div class="messages status">Форма отправлена</div>';
+    $output = [];
+    $output[] = ctools_modal_command_display('Спасибо', $message);
+
+    print ajax_render($output);
+    exit;
+
+}

@@ -1,0 +1,11 @@
+name = autocomplete_test
+description = autocomplete_test module
+version = VERSION
+core = 7.x
+
+
+; Information added by Drupal.org packaging script on 2014-06-23
+version = "7.27"
+project = "drupal"
+datestamp = "1234567890"
+

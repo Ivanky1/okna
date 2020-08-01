@@ -1,0 +1,287 @@
+<?php
+/**
+ * hook_init
+ */
+function game_bisa_init() {
+    if (strstr($_GET['q'], 'games/sadovnik')) {
+    drupal_add_js(drupal_get_path('module','game_bisa').'/js/game_bisa.js');
+    if (is_numeric(arg(3)) && strstr($_GET['q'], 'games/sadovnik/result/')) {
+        drupal_add_js(drupal_get_path('module','game_bisa').'/js/game_bisa_ajax.js');
+        }
+    }
+}
+
+/**
+ * Реализация hook_menu()
+ */
+function game_bisa_menu() {
+  $items['games/sadovnik/play'] = array(
+      'title' => 'ВЕСЕЛЫЙ САДОВНИК',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('game_bisa_form'),
+      'access arguments' => array('access content'),
+  );
+  $items['games/sadovnik/result/%'] = array(
+      'title' => 'Результат',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('game_bisa_result_form', 3),
+      'access arguments' => array('access content'),
+      'file' => 'inc/game_bisa_result.inc',
+  );
+  $items['games/sadovnik/table'] = array(
+      'title' => 'Таблица рекордов',
+      'page callback' => 'game_bisa_table',
+      'access arguments' => array('access content'),
+      'file' => 'inc/game_bisa_table.inc',
+  );
+    $items['games/sadovnik/facebook/%'] = array(
+        'title' => 'Таблица рекордов',
+        'page callback' => 'facebook_bisa_update',
+        'page arguments' => array(3),
+        'access arguments' => array('access content'),
+        'file' => 'inc/game_bisa_result.inc',
+    );
+
+  return $items;
+}
+
+
+/**
+ * @param $form
+ * @param $form_state
+ * @return mixed
+ */
+function game_bisa_form($form, &$form_state) {
+    $_SESSION['game_bisa'] = isset($_SESSION['game_bisa']) ?$_SESSION['game_bisa'] : [];
+    if (isset($_SESSION['number_index']) && $_SESSION['number_index']) {
+        $form_state['number_index'] = $_SESSION['number_index'];
+    } else {
+        $form_state['number_index'] = isset($form_state['number_index']) ?$form_state['number_index'] :0;
+        $_SESSION['number_index'] =   $form_state['number_index'];
+    }
+    $r = $form_state['number_index']+1;
+    drupal_set_title('Случай №'.$r.' из '.count(questions_return()));
+    $question = questions_return($form_state['number_index']);
+    $form['descriptions']  = array(
+        '#type' => 'item',
+        '#markup' => $question['body_value']
+    );
+    if ($question && !isset($_SESSION['game_bisa']['response_text'])) {
+        $form_state['nid_question'] = $question['nid'];
+        $form_state['true_response_question'] = $question['field_variant_response_value'];
+        $form_state['response_text_value'] = $question['field_response_text_value'];
+
+        $form_state['comment_expert_value'] = isset($question['field_comment_expert_value']) ?$question['field_comment_expert_value'] :'';
+        $form['variants']  = array(
+            '#type' => 'item',
+            '#title' => 'Посадили его или нет?',
+            '#markup' => '<a href class="yes"></a><a href class="noo"></a>'
+        );
+        $form['response'] = array(
+            '#type' => 'radios',
+            '#title' => 'Посадили его или нет?',
+            '#required' => true,
+            '#options' => array('Да'=>'Да', 'Нет'=>'Нет'),
+        );
+        $form['custom_text']  = array(
+            '#type' => 'item',
+            '#markup' => '<div class="cusom_uveren">Жмите, если уверены:</div>'
+        );
+        $form['submit'] = array(
+            '#type' => 'submit',
+            '#value' => 'Отправить',
+           /* '#ajax' => array(                         // сказали Drupal, что используем Ajax
+                'callback' => 'game_bisa_ajax_callback',   // функция которая будет вызываться после нажатия на кнопку
+                'wrapper' => 'game-bisa-form',
+            ), */
+        );
+    } elseif(isset($_SESSION['game_bisa']['response_text'])) {
+        $form['description']  = array(
+            '#type' => 'item',
+            '#markup' => $_SESSION['game_bisa']['response_text']
+        );
+
+        $className = (isset($_SESSION['game_bisa']['name_submit_new']) && $_SESSION['game_bisa']['name_submit_new']  == 'Следующее дело') ?'next_case' :'finish_case';
+        $form['submit'] = array(
+            '#type' => 'submit',
+            '#value' => $_SESSION['game_bisa']['name_submit_new'],
+            '#attributes' => array(
+                'class' => array($className)
+            )
+        );
+
+        if (isset($_SESSION['game_bisa']['comment_expert'])) {
+            $comment = preg_replace('/(<table.*>.*<\/table>)/s', "<div class='element-hidden'><div id='comment_expert'>$1</div></div>", $_SESSION['game_bisa']['comment_expert']);
+            $form['comment_expert']  = array(
+                '#type' => 'item',
+                '#markup' => $comment
+            );
+        }
+    }
+
+    return $form;
+}
+
+function game_bisa_form_validate($form, &$form_state) {
+    $r = $form_state['number_index']+1;
+    drupal_set_title('Случай №'.$r.' из '.count(questions_return()));
+}
+
+
+/**
+ * @param $form
+ * @param $form_state
+ * @return mixed
+ */
+function game_bisa_ajax_callback($form, &$form_state){
+    return $form;
+}
+
+/**
+ * @param $form
+ * @param $form_state
+ */
+function game_bisa_form_submit(&$form, &$form_state) {
+    $number_index = $form_state['number_index'] + 1;
+    if (isset($form_state['values']['response'])) {
+     //   $form_state['items'][$form_state['nid_question']] = $form_state['values']['response'];
+        $cust_str = '';
+        $form_state['response_text'] = ($form_state['values']['response'] != $form_state['true_response_question'])
+            ?checked_value(false) : checked_value(true);
+
+        $form_state['response_text'] .= "<div class='prigovor'>{$form_state['response_text_value']}</div>";
+        $form_state['response_text'] .= "<div class='present_result'>".old_response_percent_return($form_state['nid_question'], $form_state['values']['response']).'% ';
+        $form_state['response_text'] .= 'участников '.(strstr($form_state['response_text'], 'ПРАВИЛЬНО') ?'думают так же' :'тоже ошиблись').'</div>';
+        $_SESSION['game_bisa']['items'][$form_state['nid_question']] = $form_state['values']['response'];
+        $_SESSION['game_bisa']['response_text'] = $form_state['response_text'];
+        $_SESSION['game_bisa']['comment_expert'] = $form_state['comment_expert_value'];
+    }
+    $_SESSION['game_bisa']['name_submit_new'] = (questions_return($number_index)) ?'Следующее дело' :'Показать результат';
+    if ($form_state['triggering_element']['#value'] == 'Следующее дело' ) {
+        unset($form_state['response_text']);
+        unset($form_state['comment_expert_value']);
+        unset($_SESSION['game_bisa']['response_text']);
+        unset($_SESSION['game_bisa']['comment_expert']);
+        $_SESSION['number_index']++;
+    }
+
+    if ($form_state['triggering_element']['#value'] == 'Показать результат') {
+        $nid = create_response_results($_SESSION['game_bisa']['items']);
+        unset($_SESSION['number_index']);
+        unset($_SESSION['game_bisa']);
+
+        $_SESSION['table_result'] = $nid;
+        $form_state['rebuild'] = false;
+        drupal_goto('games/sadovnik/result/'.$nid);
+    } else {
+        $form_state['rebuild'] = true;
+    }
+
+}
+
+/**
+ * @param $number
+ * @return mixed
+ */
+function questions_return($number = null) {
+    $q = db_select('node', 'n');
+    $q->innerJoin('field_data_body', 'body', 'body.entity_id = n.nid');
+    $q->innerJoin('field_data_field_variant_response', 'response', 'response.entity_id = n.nid');
+    $q->innerJoin('field_data_field_response_text', 'response_text', 'response_text.entity_id = n.nid');
+    $q->leftJoin('field_data_field_comment_expert', 'comment_expert', 'comment_expert.entity_id = n.nid');
+    $q->condition('n.type', 'questions');
+    $q->fields('n', array('nid', 'title'));
+    $q->fields('body', array('body_value'));
+    $q->fields('response_text', array('field_response_text_value'));
+    $q->fields('response', array('field_variant_response_value'));
+    $q->fields('comment_expert', array('field_comment_expert_value'));
+    $q->orderBy('n.nid');
+    if (!is_null($number)) {
+        $q->range($number, 1);
+        return $q->execute()->fetchAssoc();
+    }
+    return $q->execute()->fetchAll();
+}
+
+/**
+ * @param bool $check
+ * @return string
+ */
+function checked_value($check = false) {
+    return '<h2 class="result_games">'. ((!$check) ?'НЕ УГАДАЛИ ' :'ВЫ ОТВЕТИЛИ ПРАВИЛЬНО!'). '</h2>';
+}
+
+/**
+ * @param $items
+ */
+function create_response_results($items) {
+    $node = new stdClass();
+    $node->type = 'result_response';
+    node_object_prepare($node);
+    $node->title = 'Ответ';
+    $node->language = LANGUAGE_NONE;
+    $node->uid = 1;     // необязательно
+    $node->status = 1;  // необязательно
+    $node->promote = 1; // необязательно
+    $response_str = '';
+    $response_arr = array();
+    foreach($items as $nid=>$val) {
+        $response_str .= $nid.'='.$val."\n";
+        $response_arr[$nid] = $val;
+    }
+    if ($response_str) {
+        $node->field_response_return[LANGUAGE_NONE][0]['value'] = trim($response_str);
+    }
+    if($response_arr) {
+        $node->field_present_result[LANGUAGE_NONE][0]['value']  = present_result_return($response_arr);
+    }
+    node_save($node);
+    return $node->nid;
+}
+
+/**
+ * @param $nid
+ * @param $response
+ * @return int
+ */
+function old_response_percent_return($nid, $response) {
+    $q = db_select('node', 'n');
+    $q->innerJoin('field_data_field_response_return', 'response', 'response.entity_id = n.nid');
+    $q->innerJoin('field_data_field_present_result', 'result', 'result.entity_id = n.nid');
+    $q->condition('n.type', 'result_response');
+    if (is_null($response)) {
+        $q->condition('n.nid', $nid, '<>');
+    }
+    $q->fields('response', array('field_response_return_value'));
+    $q->fields('result', array('field_present_result_value'));
+    $res = $q->execute()->fetchAll();
+    if ($response) {
+        $present_cnt = 0;
+        foreach($res as $r) {
+            if (preg_match("/$nid=$response/", $r->field_response_return_value)) {
+                $present_cnt++;
+            }
+        }
+        if ($present_cnt) {
+            return round( ($present_cnt*100)/count($res));
+        }
+        return $present_cnt;
+    } else {
+        return $res;
+    }
+}
+
+/**
+ * @param $response
+ * @return int
+ */
+function present_result_return($response) {
+    $questions = questions_return();
+    $present_cnt = 0;
+    foreach($questions as $question) {
+        if ($question->field_variant_response_value == $response[$question->nid]) {
+            $present_cnt++;
+        }
+    }
+    return $present_cnt;
+}

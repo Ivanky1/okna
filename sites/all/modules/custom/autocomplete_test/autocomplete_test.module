@@ -1,0 +1,136 @@
+<?php
+
+function autocomplete_test_menu() {
+    $items['test/autocomplete'] = array(
+        'title' => 'Тест австокомплите',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('autocomplete_form_test'),
+        'access arguments' => array('access content')
+    );
+    $items['test/autocomplete/user_callback'] = array(
+        'page callback' => 'autocomplete_user_callback',
+        'type' => MENU_CALLBACK,
+        'access arguments' => array('access content'),
+    );
+    $items['test/autocomplete/select'] = array(
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('select_test_form'),
+        'type' => MENU_CALLBACK,
+        'access arguments' => array('access content'),
+        'file' => 'select_ajax_test.inc',
+    );
+
+    return $items;
+}
+
+function autocomplete_form_test($form, &$form_state) {
+    $options = array(
+        array( 'title' => 'How to Learn Drupal', 'content_type' => 'Article', 'status' => 'published',  ),
+        array( 'title' => 'Privacy Policy', 'content_type' => 'Page', 'status' => 'published', ),
+    );
+    $header = array( 'title' => t('Title'), 'content_type' => t('Content type'), 'status' => t('Status'), );
+    $form['tableselect_element'] = array(
+        '#type' => 'tableselect',
+        '#header' => $header,
+        '#options' => $options,
+        '#empty' => t('No content available.'), );
+
+    $form['user'] = array(
+        '#type' => 'textfield',
+        '#title' => 'Введите юзера',
+        '#autocomplete_path' => 'test/autocomplete/user_callback',
+    );
+
+    $step = empty($form_state['storage']['step']) ? 'Отправить' : $form_state['storage']['step'];
+    $form_state['storage']['step'] = $step;
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#default_value' =>  $form_state['storage']['step'],
+    );
+
+    return $form;
+}
+
+function autocomplete_form_test_submit($form, &$form_state) {
+    dpm($form_state);
+    if ( $form_state['triggering_element']['#value'] === 'Отправить') {
+        $form_state['storage']['step'] = 'Не отправлять';
+        $form_state['rebuild'] = TRUE;
+    }
+}
+
+function autocomplete_user_callback($string = '') {
+    $matches = array();
+    if ($string) {
+        $result = db_select('users')
+            ->fields('users')
+            ->condition('name', db_like($string) . '%', 'LIKE')
+            ->range(0, 10)
+            ->execute();
+        foreach ($result as $user) {
+            $matches[$user->name] = $user->name . " (uid=$user->uid)";
+        }
+    }
+
+    drupal_json_output($matches);
+}
+
+/**
+ * Форма
+ */
+function mymodule_test_form($form, $form_state) {
+    // Враппер для селектов
+    $form['terms'] = array(
+        '#tree' => TRUE,
+        '#prefix' => '<div id="terms">',
+        '#suffix' => '</div>',
+    );
+
+    // Если сработает AJAX, то в $form_state['values']['terms'] будут выбранные значения селектов
+    $terms_values = isset($form_state['values']['terms']) ? $form_state['values']['terms'] : array();
+    // Селектов будет генерится на 1 больше чем есть в $form_state['values']['terms']
+    $terms_values += array('term' . (count($terms_values) + 1) => 'none');
+    // В первом селекте будут выводится термины без родителя
+    $parent_tid = 0;
+
+    foreach ($terms_values as $input_name => $tid) {
+        // Завершаем цикл если в предыдущем селекте ничего не выбрано
+        // или у термина нет дочерних терминов
+        if ($parent_tid === 'none' || !($terms = taxonomy_get_tree(1, $parent_tid, 1))) {
+            break;
+        }
+
+        // Формируем данные для селекта
+        $options = array('none' => '<none>');
+        foreach ($terms as $term) {
+            $options[$term->tid] = $term->name;
+        }
+
+        // Создаём сам селект
+        $form['terms'][$input_name] = array(
+            '#type' => 'select',
+            '#options' => $options,
+            '#default_value' => $tid,
+            '#ajax' => array(
+                'callback' => 'mymodule_test_form_ajax_callback',
+                'wrapper' => 'terms',
+            ),
+        );
+
+        $parent_tid = isset($options[$tid]) ? $tid : 'none';
+    }
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Submit',
+    );
+
+    return $form;
+}
+
+/**
+ * AJAX callback
+ */
+function mymodule_test_form_ajax_callback($form, $form_state) {
+    return $form['terms'];
+}

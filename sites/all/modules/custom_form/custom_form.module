@@ -1,0 +1,79 @@
+<?php
+/**
+ * Implements hook_element_info()
+ */
+function custom_form_element_info(){
+    // Описали новый тип элемента формы
+    $types['mydate'] = array(
+        '#input' => TRUE,
+        '#theme' => 'mydate',
+        '#theme_wrappers' => array('form_element'),
+    );
+
+    return $types;
+}
+
+/**
+ * Implements hook_theme
+ */
+function custom_form_theme(){
+    return array(
+        'mydate' => array(
+            'arguments' => array('element' => NULL),
+            'render element' => 'element',
+        )
+    );
+}
+
+function theme_mydate($variables) {
+    $element = $variables['element'];
+    $element['#attributes']['type'] = 'date';
+    element_set_attributes($element, array('id', 'name'));
+    _form_set_class($element, array('form-text', 'form-date'));
+
+    $output = '<input' . drupal_attributes($element['#attributes']) . ' />';
+
+    return $output;
+}
+
+/**
+ * Реализация hook_menu()
+ */
+function custom_form_menu() {
+  $items['custom/myform'] = array(
+      'title' => 'Form API',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('myform_form'),
+      'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function myform_form($form, &$form_state) {
+    $form['date'] = array(
+        '#type' => 'mydate',
+        '#title' => t('Дата'),
+    );
+
+    if (module_exists('date_popup')) {
+        $default_value = time() ?
+            format_date(REQUEST_TIME, 'custom', 'Y-m-d H:i') :
+            format_date(time(), 'custom', 'Y-m-d H:i');
+        $form['timestamp']['#type'] = 'date_popup';
+        $form['timestamp']['#date_format'] = 'd.m.Y';
+        $form['timestamp']['#date_year_range'] = '-2:0+2:0';
+        $form['timestamp']['#date_label_position'] = 'none';
+        $form['timestamp']['#default_value'] = $default_value;
+    }
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Отправить'
+    );
+
+    return $form;
+}
+
+function myform_form_submit($form, &$form_state) {
+    dpm($form_state);
+}
