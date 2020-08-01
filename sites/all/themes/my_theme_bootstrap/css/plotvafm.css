@@ -205,10 +205,23 @@ footer p {
     margin-bottom: 20px;
 }
 
-.ctools-modal-feedback-deal-ctools {
+#block-feedback-popup-feedback-popup .ctools-modal-feedback-deal-ctools {
     color: #fff;
 }
 
-.ctools-modal-feedback-deal-ctools:hover {
+#block-feedback-popup-feedback-popup .ctools-modal-feedback-deal-ctools:hover {
     color: #fff;
+}
+
+#block-feedback-popup-feedback-popup .ctools-modal-feedback-deal-ctools:active {
+    color: #fff;
+    text-decoration: none;
+}
+
+.intro-text .ctools-modal-feedback-deal-ctools {
+    color: #777;
+}
+
+.intro-text .ctools-modal-feedback-deal-ctools:active {
+    text-decoration: none;
 }

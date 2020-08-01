@@ -1,6 +1,0 @@
-name = module_error_delete
-description = module_error_delete module
-version = VERSION
-core = 7.x
-
-

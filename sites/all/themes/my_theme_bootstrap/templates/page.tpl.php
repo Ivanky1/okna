@@ -121,13 +121,15 @@
                 <h2 class="brand-before">
                     <small>Добро пожаловать на сайт</small>
                 </h2>
-                <h1 class="brand-name"><?php print $site_name; ?></h1>
+               <!-- <h1 class="brand-name"><?php /*print $site_name; */?></h1>-->
                 <hr class="tagline-divider">
-                <h2>
-                    <small>By
-                        <strong>Start Bootstrap</strong>
-                    </small>
+                <h2 class="intro-text text-center">
+                    <?php
+                        $block = module_invoke('call_popup', 'block_view', 'call_popup');
+                        print render($block['content']);
+                    ?>
                 </h2>
+
             </div>
         </div>
     </div>
@@ -137,8 +139,11 @@
             <div class="col-lg-12">
                 <hr>
                 <?php if (!empty($title)): ?>
-                    <h2 class="intro-text text-center"><?php print $title; ?>
-                       <!-- <strong>to showcase your content</strong> -->
+
+                    <h2 class="text-center">
+                        <small>
+                            <strong><?php print $title; ?></strong>
+                        </small>
                     </h2>
                 <?php endif ?>
                 <?php if (!empty($breadcrumb)): print $breadcrumb; endif;?>
