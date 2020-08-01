@@ -19,9 +19,9 @@ function getBlockPopupConfig($text, $url) {
     $sample_style = array(
         'feedback-deal-ctools' => array(
             'modalSize' => array(
-                'type' => 'fixed',
-                'width' => 500,
-                'height' => 500,
+                'type' => 'fixed', // Тип модального окна: фиксированный (fixed) или резиновый(scale).
+                'width' => 'auto', // Ширина окна(если fixed, то в px).
+                'height' => 500, // Высота окна(если fixed, то в px).
             ),
             'modalOptions' => array(
                 'opacity' => .8,
