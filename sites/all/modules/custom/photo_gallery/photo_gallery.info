@@ -1,0 +1,6 @@
+name = photo_gallery
+description = Photo gallery module
+version = VERSION
+core = 7.x
+
+

@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * * Реализация hook_init();
+ *
+ * @return mixed
+ */
+function photo_gallery_init() {
+    if (strstr(request_uri(), 'photo-gallery')) {
+        $path = drupal_get_path('module', 'photo_gallery');
+        drupal_add_css($path . '/dist/css/lightgallery.min.css');
+        drupal_add_css($path . '/css/photo_gallery.css');
+        drupal_add_js($path . '/dist/js/lightgallery-all.min.js');
+        drupal_add_js($path . '/js/photo_gallery.js');
+    }
+}
